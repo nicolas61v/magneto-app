@@ -1,4 +1,6 @@
 // src/types/api.ts
+import { CVData } from '@/types/cv';
+
 export interface ApiResponse<T> {
     success: boolean;
     data?: T;
