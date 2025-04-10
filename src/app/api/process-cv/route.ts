@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     try {
       // Intentar analizar la respuesta como JSON
       processedData = JSON.parse(responseText);
-    } catch (error) {
+    } catch (_error) {
       // Si falla, intentar extraer la parte JSON de la respuesta
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {

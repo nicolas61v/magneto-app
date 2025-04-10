@@ -1,4 +1,3 @@
-// src/services/pdfService.ts
 import { CVData } from '@/types/cv';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -6,8 +5,21 @@ import 'jspdf-autotable';
 // Typescript declaration for jspdf-autotable
 declare module 'jspdf' {
   interface jsPDF {
-    autoTable: (options: any) => jsPDF;
+    autoTable: (options: AutoTableOptions) => jsPDF;
   }
+}
+
+// Definir interfaz para las opciones de autoTable
+interface AutoTableOptions {
+  head?: Array<Array<string>>;
+  body?: Array<Array<string | number>>;
+  startY?: number;
+  margin?: { top?: number; right?: number; bottom?: number; left?: number };
+  theme?: string;
+  styles?: object;
+  headStyles?: object;
+  bodyStyles?: object;
+  // Puedes añadir más propiedades según lo que necesites
 }
 
 export const generatePdf = async (cvData: CVData): Promise<string> => {

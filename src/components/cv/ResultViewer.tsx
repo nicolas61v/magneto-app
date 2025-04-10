@@ -1,8 +1,6 @@
 // src/components/cv/ResultViewer.tsx
 import { useState } from 'react';
-import { CV } from '@/types/cv';
 import { PdfGenerator } from './PdfGenerator';
-import { Button } from '@/components/ui/Button';
 import { ResultViewerProps } from '@/types/components';
 
 export const ResultViewer: React.FC<ResultViewerProps> = ({ cv, isLoading }) => {
