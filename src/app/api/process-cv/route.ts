@@ -1,3 +1,4 @@
+//src/app/api/process-cv/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { CVData } from '@/types/cv';

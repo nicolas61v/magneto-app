@@ -79,31 +79,80 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <Navbar />
-      <header className="bg-white shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <h1 className="text-2xl font-bold text-gray-800">Analizador de CV con IA</h1>
+      
+      <header className="bg-card border-b border-border">
+        <div className="container mx-auto px-4 py-6">
+          <h1 className="text-2xl font-bold text-card-foreground flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Analizador de CV con IA
+          </h1>
         </div>
       </header>
       
       <main className="container mx-auto px-4 py-8">
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">Bienvenido al Analizador de CV</h2>
-          <p className="text-gray-600 mb-2">Esta aplicación te permite:</p>
-          <ul className="list-disc pl-5 mb-4 text-gray-600">
-            <li>Subir una imagen de un CV</li>
-            <li>Extraer el texto automáticamente con Google Vision AI</li>
-            <li>Analizar la información con Google AI Studio</li>
-            <li>Generar un resumen estructurado en formato PDF</li>
-          </ul>
-          <p className="text-gray-600">Comienza subiendo un documento a continuación.</p>
+        <div className="card p-6 mb-8 border border-border">
+          <div className="md:flex items-center">
+            <div className="flex-shrink-0 mb-4 md:mb-0 md:mr-6">
+              <div className="h-16 w-16 bg-primary/10 text-primary rounded-full flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                </svg>
+              </div>
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold mb-2">Bienvenido al Analizador de CV</h2>
+              <p className="text-secondary-foreground mb-2">Esta aplicación te permite:</p>
+              <div className="space-y-1 mb-3">
+                <div className="flex items-start">
+                  <div className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <span className="text-sm">Subir una imagen de un CV</span>
+                </div>
+                <div className="flex items-start">
+                  <div className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <span className="text-sm">Extraer el texto automáticamente con Google Vision AI</span>
+                </div>
+                <div className="flex items-start">
+                  <div className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <span className="text-sm">Analizar la información con Google AI Studio</span>
+                </div>
+                <div className="flex items-start">
+                  <div className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <span className="text-sm">Generar un resumen estructurado en formato PDF</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         
         {error && (
-          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
-            <p className="font-bold">Error</p>
-            <p>{error}</p>
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 mb-6 text-red-800 dark:border-red-900 dark:bg-red-950/50 dark:text-red-400">
+            <div className="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-red-600 dark:text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="font-medium">Error</p>
+            </div>
+            <p className="mt-1 ml-7 text-sm">{error}</p>
           </div>
         )}
         
@@ -115,15 +164,18 @@ export default function Dashboard() {
             />
             
             {(isLoading || isExtracting || isProcessing) && (
-              <div className="mt-6 p-6 border rounded-lg bg-white shadow-sm text-center">
+              <div className="mt-6 card p-6 flex flex-col items-center justify-center text-center">
                 <Loader size="md" color="primary" />
-                <p className="mt-4 text-gray-600">
+                <p className="mt-4 text-secondary-foreground">
                   {isExtracting 
                     ? "Extrayendo texto del documento..." 
                     : isProcessing 
                       ? "Procesando información con IA..." 
                       : "Procesando..."}
                 </p>
+                <div className="w-full bg-secondary h-2 rounded-full mt-4 overflow-hidden">
+                  <div className="animate-shimmer h-full rounded-full"></div>
+                </div>
               </div>
             )}
           </div>
@@ -139,17 +191,21 @@ export default function Dashboard() {
         </div>
         
         {cv?.processedData && (
-          <div className="mt-8 bg-green-50 border-l-4 border-green-500 p-4 rounded">
-            <p className="text-green-700">
-              ¡Procesamiento completado con éxito! Puedes generar un PDF con la información extraída.
-            </p>
+          <div className="mt-8 rounded-lg border border-green-200 bg-green-50 p-4 text-green-800 dark:border-green-900 dark:bg-green-950/50 dark:text-green-400">
+            <div className="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-green-600 dark:text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="font-medium">¡Procesamiento completado con éxito!</p>
+            </div>
+            <p className="mt-1 ml-7 text-sm">Puedes generar un PDF con la información extraída.</p>
           </div>
         )}
       </main>
       
-      <footer className="bg-white border-t mt-12 py-6">
+      <footer className="bg-card border-t border-border mt-12 py-6">
         <div className="container mx-auto px-4">
-          <p className="text-center text-gray-500 text-sm">
+          <p className="text-center text-secondary-foreground text-sm">
             © {new Date().getFullYear()} Analizador de CV con IA. Desarrollado con Next.js, Firebase y Google AI.
           </p>
         </div>
