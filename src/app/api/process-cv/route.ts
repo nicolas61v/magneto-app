@@ -1,10 +1,7 @@
-//src/app/api/process-cv/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { CVData } from '@/types/cv';
+// src/app/api/process-cv/mock-route.ts
+// Renombre este archivo a "route.ts" para utilizarlo como un mock si no tiene una clave de API válida
 
-// Inicializar el cliente de Google AI
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_STUDIO_API_KEY || '');
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,79 +14,61 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Modelo a utilizar (Gemini)
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    // Simula el procesamiento con una respuesta predeterminada
+    // En un entorno real, esto utilizaría la API de Google AI Studio
 
-    // Prompt para la extracción de información del CV
-    const prompt = `
-      Actúa como un asistente de RRHH experto en análisis de currículums.
-      Analiza el siguiente texto extraído de un CV y estructúralo en formato JSON.
-      Extrae la siguiente información:
-      - Información personal (nombre, email, teléfono, ubicación)
-      - Resumen profesional
-      - Experiencia laboral (empresa, cargo, fechas, descripción)
-      - Educación (institución, título, fechas)
-      - Habilidades
-      - Idiomas
+    // Espera un poco para simular el procesamiento
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
-      Devuelve solo el JSON sin explicaciones adicionales. Formato esperado:
-      {
-        "personalInfo": {
-          "name": "",
-          "email": "",
-          "phone": "",
-          "location": ""
+    // Mock de los datos procesados
+    const processedData = {
+      personalInfo: {
+        name: "Juan Pérez",
+        email: "jperez@email.com",
+        phone: "+34 612345678",
+        location: "Madrid, España"
+      },
+      summary: "Desarrollador web con más de 5 años de experiencia creando aplicaciones web modernas y responsivas. Especializado en React, TypeScript y Node.js.",
+      experience: [
+        {
+          company: "TechSolutions",
+          position: "Desarrollador Frontend Senior",
+          startDate: "Enero 2020",
+          endDate: "Presente",
+          description: "Desarrollo de aplicaciones web con React y TypeScript. Implementación de interfaces de usuario siguiendo principios de diseño UX/UI. Trabajo en equipo utilizando metodologías ágiles."
         },
-        "summary": "",
-        "experience": [
-          {
-            "company": "",
-            "position": "",
-            "startDate": "",
-            "endDate": "",
-            "description": ""
-          }
-        ],
-        "education": [
-          {
-            "institution": "",
-            "degree": "",
-            "startDate": "",
-            "endDate": ""
-          }
-        ],
-        "skills": ["", "", ""],
-        "languages": [
-          {
-            "name": "",
-            "level": ""
-          }
-        ]
-      }
-
-      Texto del CV:
-      ${text}
-    `;
-
-    // Generar respuesta
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const responseText = response.text();
-
-    // Extraer el JSON de la respuesta
-    let processedData: CVData;
-    try {
-      // Intentar analizar la respuesta como JSON
-      processedData = JSON.parse(responseText);
-    } catch {
-      // Si falla, intentar extraer la parte JSON de la respuesta
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        processedData = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('No se pudo extraer la información estructurada del CV');
-      }
-    }
+        {
+          company: "InnovateSoft",
+          position: "Desarrollador Web",
+          startDate: "Marzo 2018",
+          endDate: "Diciembre 2019",
+          description: "Mantenimiento y desarrollo de aplicaciones con Angular. Integración de APIs REST. Optimización de rendimiento."
+        }
+      ],
+      education: [
+        {
+          institution: "Universidad Complutense de Madrid",
+          degree: "Grado en Ingeniería Informática",
+          startDate: "2014",
+          endDate: "2018"
+        }
+      ],
+      skills: ["React", "TypeScript", "JavaScript", "HTML5", "CSS3", "Node.js", "Express", "MongoDB", "Git"],
+      languages: [
+        {
+          name: "Español",
+          level: "Nativo"
+        },
+        {
+          name: "Inglés",
+          level: "Avanzado"
+        },
+        {
+          name: "Francés",
+          level: "Básico"
+        }
+      ]
+    };
 
     return NextResponse.json({ processedData });
   } catch (error) {

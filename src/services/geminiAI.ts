@@ -14,11 +14,15 @@ export const processTextWithGemini = async (text: string): Promise<GeminiAIRespo
       body: JSON.stringify({ text }),
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
-      throw new Error('Error al procesar texto con IA');
+      // Extract specific error message from the response if available
+      const errorMessage = data.error || 'Error al procesar texto con IA';
+      console.error('API Error:', errorMessage);
+      throw new Error(errorMessage);
     }
 
-    const data = await response.json();
     return {
       processedData: data.processedData,
     };
