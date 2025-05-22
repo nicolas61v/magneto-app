@@ -60,7 +60,8 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
       }
       
       setFiles(prevFiles => [...prevFiles, ...processedFiles]);
-    } catch (error) {
+    } catch (err) {
+      console.error('Error procesando archivos:', err);
       onError('Error procesando archivos PDF');
     } finally {
       setIsProcessingPdf(false);

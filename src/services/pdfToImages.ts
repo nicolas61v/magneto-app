@@ -1,5 +1,4 @@
 // src/services/pdfToImages.ts
-// @ts-ignore
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
 
 // Configurar el worker de PDF.js
