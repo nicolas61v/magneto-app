@@ -25,8 +25,6 @@ interface AutoTableOptions {
 
 export const generatePdf = async (cvData: CVData): Promise<string> => {
   try {
-    console.log('Generando PDF con datos:', cvData); // Debug
-
     const { personalInfo, education, experience, skills, summary, languages } = cvData;
     
     // Create new PDF document
@@ -126,7 +124,7 @@ export const generatePdf = async (cvData: CVData): Promise<string> => {
       doc.text('EXPERIENCIA LABORAL', 20, yPosition);
       yPosition += 10;
       
-      experience.forEach((exp, index) => {
+      experience.forEach((exp) => {
         // Verificar espacio en página
         if (yPosition > 250) {
           doc.addPage();
@@ -182,7 +180,7 @@ export const generatePdf = async (cvData: CVData): Promise<string> => {
       doc.text('EDUCACIÓN', 20, yPosition);
       yPosition += 10;
       
-      education.forEach((edu, index) => {
+      education.forEach((edu) => {
         if (yPosition > 250) {
           doc.addPage();
           yPosition = 20;
@@ -280,14 +278,11 @@ export const generatePdf = async (cvData: CVData): Promise<string> => {
       doc.text('Generado por Analizador CV con IA', 105, 290, { align: 'center' });
     }
     
-    console.log('PDF generado exitosamente');
-    
     // Generate PDF as data URL
     const pdfDataUrl = doc.output('datauristring');
     return pdfDataUrl;
   } catch (error) {
     console.error('Error generando PDF:', error);
-    console.error('Datos recibidos:', cvData);
     throw error;
   }
 };
