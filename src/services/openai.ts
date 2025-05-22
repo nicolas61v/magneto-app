@@ -1,11 +1,8 @@
-// src/services/geminiAI.ts
+// src/services/openai.ts
 import { GeminiAIResponse } from '@/types/api';
 
-// Esta función sería una llamada a la API de Google AI Studio (Gemini)
-export const processTextWithGemini = async (text: string): Promise<GeminiAIResponse> => {
+export const processTextWithOpenAI = async (text: string): Promise<GeminiAIResponse> => {
   try {
-    // En un entorno real, necesitarías llamar a la API REST de Google AI Studio
-    // o utilizar su SDK de cliente
     const response = await fetch('/api/process-cv', {
       method: 'POST',
       headers: {
@@ -17,8 +14,7 @@ export const processTextWithGemini = async (text: string): Promise<GeminiAIRespo
     const data = await response.json();
 
     if (!response.ok) {
-      // Extract specific error message from the response if available
-      const errorMessage = data.error || 'Error al procesar texto con IA';
+      const errorMessage = data.error || 'Error al procesar texto con OpenAI';
       console.error('API Error:', errorMessage);
       throw new Error(errorMessage);
     }
@@ -27,7 +23,7 @@ export const processTextWithGemini = async (text: string): Promise<GeminiAIRespo
       processedData: data.processedData,
     };
   } catch (error) {
-    console.error('Error en Gemini AI:', error);
+    console.error('Error en OpenAI:', error);
     throw error;
   }
 };

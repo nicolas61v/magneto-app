@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { FileUploader } from '@/components/cv/FileUploader';
 import { ResultViewer } from '@/components/cv/ResultViewer';
 import { useVisionAI } from '@/hooks/useVisionAI';
-import { useGeminiAI } from '@/hooks/useOpenAI';
+import { useOpenAI } from '@/hooks/useOpenAI';
 import { CV } from '@/types/cv';
 import { Loader } from '@/components/ui/Loader';
 import { Navbar } from '@/components/layout/Navbar';
@@ -16,7 +16,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   
   const { extractText, isExtracting } = useVisionAI();
-  const { processText, isProcessing } = useGeminiAI();
+  const { processText, isProcessing } = useOpenAI();
 
   const handleUploadComplete = async (imageUrl: string) => {
     try {
