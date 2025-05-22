@@ -4,8 +4,7 @@
 import { useState } from 'react';
 import { FileUploader } from '@/components/cv/FileUploader';
 import { ResultViewer } from '@/components/cv/ResultViewer';
-import { useVisionAI } from '@/hooks/useVisionAI';
-import { useOpenAI } from '@/hooks/useOpenAI';
+import { useAsyncProcessing } from '@/hooks/useAsyncProcessing';
 import { firestoreService } from '@/services/firestore';
 import { CV } from '@/types/cv';
 import { Loader } from '@/components/ui/Loader';
@@ -16,27 +15,26 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentProgress, setCurrentProgress] = useState<string>('');
-  
-  const { extractText, isExtracting } = useVisionAI();
-  const { processText, isProcessing } = useOpenAI();
+  const { startAsyncProcess, isPolling } = useAsyncProcessing();
 
   const handleUploadComplete = async (imageUrls: string | string[]) => {
     try {
       setIsLoading(true);
       setError(null);
       
-      // Convertir a array si es string único (compatibilidad hacia atrás)
+      // Convertir a array si es string único
       const urls = Array.isArray(imageUrls) ? imageUrls : [imageUrls];
       
-      setCurrentProgress(`Procesando ${urls.length} imagen${urls.length > 1 ? 'es' : ''}...`);
+      setCurrentProgress(`Preparando ${urls.length} imagen${urls.length > 1 ? 'es' : ''}...`);
       
       // Crear CV inicial
       const initialCV: Omit<CV, 'id' | 'createdAt'> = {
-        originalImageUrl: urls[0], // Primera imagen como principal
-        additionalImageUrls: urls.slice(1), // Resto de imágenes
+        originalImageUrl: urls[0],
+        additionalImageUrls: urls.slice(1),
         extractedText: '',
         processedData: null,
-        status: 'extracting'
+        status: 'uploading',
+        extractionProgress: 0
       };
       
       // Guardar en Firestore
@@ -49,83 +47,58 @@ export default function Dashboard() {
       };
       
       setCv(cvWithId);
-
-      // Esperar un momento para que Firebase procese las URLs
-      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // FASE 1: EXTRACCIÓN DE TEXTO DE TODAS LAS IMÁGENES
-      let allExtractedText = '';
+      // Iniciar procesamiento asíncrono
+      setCurrentProgress('Iniciando procesamiento...');
       
-      for (let i = 0; i < urls.length; i++) {
-        setCurrentProgress(`Extrayendo texto de imagen ${i + 1} de ${urls.length}...`);
-        
-        try {
-          const { text } = await extractText(urls[i]);
+      const response = await fetch('/api/process-async', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cvId: firestoreId,
+          imageUrls: urls
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error iniciando procesamiento');
+      }
+      
+      setIsLoading(false);
+      
+      // Iniciar polling para verificar estado
+      startAsyncProcess(
+        firestoreId,
+        (updatedCv) => {
+          setCv(updatedCv);
           
-          if (text && text.trim().length > 0) {
-            // Agregar separador entre páginas
-            if (allExtractedText.length > 0) {
-              allExtractedText += '\n\n--- PÁGINA ' + (i + 1) + ' ---\n\n';
+          // Actualizar mensaje de progreso
+          if (updatedCv.status === 'extracting') {
+            const progress = updatedCv.extractionProgress || 0;
+            if (progress < 50) {
+              setCurrentProgress(`Extrayendo texto: ${Math.round(progress * 2)}%`);
+            } else {
+              setCurrentProgress('Analizando con IA...');
             }
-            allExtractedText += text;
+          } else if (updatedCv.status === 'processing') {
+            setCurrentProgress('Finalizando análisis con IA...');
           }
-        } catch (err) {
-          console.error(`Error extrayendo texto de imagen ${i + 1}:`, err);
-          // Continuar con las demás imágenes
+        },
+        (completedCv) => {
+          setCv(completedCv);
+          setCurrentProgress('');
+        },
+        (errorMsg) => {
+          setError(errorMsg);
+          setCurrentProgress('');
         }
-      }
-      
-      // Validación del texto total
-      if (!allExtractedText || allExtractedText.trim().length < 50) {
-        throw new Error('No se pudo extraer texto suficiente de las imágenes');
-      }
-      
-      setCurrentProgress('Actualizando base de datos...');
-      
-      // Actualizar Firestore
-      await firestoreService.updateExtractedText(firestoreId, allExtractedText);
-      
-      const cvWithText: CV = {
-        ...cvWithId,
-        extractedText: allExtractedText,
-        status: 'processing'
-      };
-      
-      setCv(cvWithText);
-      
-      // FASE 2: PROCESAMIENTO CON IA
-      setCurrentProgress('Analizando información con IA...');
-      
-      const { processedData } = await processText(allExtractedText);
-      
-      // Actualizar Firestore con datos procesados
-      await firestoreService.updateProcessedData(firestoreId, processedData);
-      
-      // Actualizar estado final
-      const completedCV: CV = {
-        ...cvWithText,
-        processedData,
-        status: 'completed'
-      };
-      
-      setCv(completedCV);
-      setCurrentProgress('');
+      );
       
     } catch (err) {
       console.error('Error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Error en el procesamiento';
       setError(errorMessage);
       setCurrentProgress('');
-      
-      if (cv?.id) {
-        await firestoreService.markAsError(cv.id, errorMessage);
-        setCv({
-          ...cv,
-          status: 'error',
-          errorMessage
-        });
-      }
-    } finally {
       setIsLoading(false);
     }
   };
@@ -169,7 +142,7 @@ export default function Dashboard() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <span className="text-sm">Subir múltiples imágenes de un CV</span>
+                  <span className="text-sm">Subir CVs en formato PDF o imagen</span>
                 </div>
                 <div className="flex items-start">
                   <div className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">
@@ -177,7 +150,7 @@ export default function Dashboard() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <span className="text-sm">Extraer el texto automáticamente con Google Vision AI</span>
+                  <span className="text-sm">Conversión automática de PDFs a imágenes</span>
                 </div>
                 <div className="flex items-start">
                   <div className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">
@@ -185,7 +158,7 @@ export default function Dashboard() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <span className="text-sm">Analizar la información con OpenAI</span>
+                  <span className="text-sm">Procesamiento asíncrono sin timeouts</span>
                 </div>
                 <div className="flex items-start">
                   <div className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">
@@ -197,7 +170,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="bg-blue-50 text-blue-700 p-2 rounded text-sm">
-                💡 <strong>Tip:</strong> Puedes subir varias fotos si tu CV tiene múltiples páginas
+                💡 <strong>Tip:</strong> Los PDFs con imágenes escaneadas también funcionan perfectamente
               </div>
             </div>
           </div>
@@ -222,19 +195,20 @@ export default function Dashboard() {
               onError={handleError}
             />
             
-            {(isLoading || isExtracting || isProcessing) && (
+            {(isLoading || isPolling) && currentProgress && (
               <div className="mt-6 card p-6 flex flex-col items-center justify-center text-center">
                 <Loader size="md" color="primary" />
                 <p className="mt-4 text-secondary-foreground">
-                  {currentProgress || (isExtracting 
-                    ? "Extrayendo texto del documento..." 
-                    : isProcessing 
-                      ? "Procesando información con IA..." 
-                      : "Guardando en base de datos...")}
+                  {currentProgress}
                 </p>
                 <div className="w-full bg-secondary h-2 rounded-full mt-4 overflow-hidden">
                   <div className="animate-shimmer h-full rounded-full"></div>
                 </div>
+                {isPolling && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    Procesando en segundo plano...
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -243,7 +217,7 @@ export default function Dashboard() {
             <div>
               <ResultViewer
                 cv={cv}
-                isLoading={isLoading || isExtracting || isProcessing}
+                isLoading={isLoading || isPolling}
               />
             </div>
           )}
