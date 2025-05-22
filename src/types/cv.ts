@@ -2,12 +2,13 @@
 export interface CV {
     id: string;
     originalImageUrl: string;
-    additionalImageUrls?: string[]; // Nueva propiedad para imágenes adicionales
+    additionalImageUrls?: string[];
     extractedText: string;
     processedData: CVData | null;
     createdAt: Date;
     status: 'uploading' | 'extracting' | 'processing' | 'completed' | 'error';
     errorMessage?: string;
+    extractionProgress?: number; // Agregar este campo
 }
 
 export interface CVData {

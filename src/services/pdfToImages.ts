@@ -1,5 +1,6 @@
 // src/services/pdfToImages.ts
-import * as pdfjsLib from 'pdfjs-dist';
+// @ts-ignore
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
 
 // Configurar el worker de PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
