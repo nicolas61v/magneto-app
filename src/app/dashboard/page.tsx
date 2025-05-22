@@ -20,45 +20,61 @@ export default function Dashboard() {
   const { processText, isProcessing } = useOpenAI();
 
   const handleUploadComplete = async (imageUrl: string) => {
-    try {
-      setIsLoading(true);
-      setError(null);
+  try {
+    setIsLoading(true);
+    setError(null);
+    
+    // Crear un objeto CV inicial
+    const initialCV: Omit<CV, 'id' | 'createdAt'> = {
+      originalImageUrl: imageUrl,
+      extractedText: '',
+      processedData: null,
+      status: 'extracting'
+    };
+    
+    // Guardar CV inicial en Firestore
+    console.log('Guardando CV inicial en Firestore...');
+    const firestoreId = await firestoreService.createCV(initialCV);
+    
+    // Crear CV con ID de Firestore
+    const cvWithId: CV = {
+      id: firestoreId,
+      ...initialCV,
+      createdAt: new Date(),
+    };
+    
+    setCv(cvWithId);
+    
+    // ⚡ AGREGAR DELAY PARA QUE LA IMAGEN ESTÉ COMPLETAMENTE DISPONIBLE
+    console.log('🕒 Esperando 3 segundos para que la imagen esté completamente disponible...');
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    // Extraer texto de la imagen usando Google Vision AI
+    console.log('Extrayendo texto con Google Vision AI...');
+    const { text } = await extractText(imageUrl);
+    
+    console.log('Texto extraído:', text);
+    console.log('Longitud del texto:', text.length);
+    
+    // Si el texto es muy corto, intentar una segunda vez
+    if (text.length < 50) {
+      console.log('⚠️ Texto muy corto, reintentando en 2 segundos...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Crear un objeto CV inicial
-      const initialCV: Omit<CV, 'id' | 'createdAt'> = {
-        originalImageUrl: imageUrl,
-        extractedText: '',
-        processedData: null,
-        status: 'extracting'
-      };
+      const { text: secondAttemptText } = await extractText(imageUrl);
+      console.log('Segundo intento - Texto extraído:', secondAttemptText);
+      console.log('Segundo intento - Longitud:', secondAttemptText.length);
       
-      // Guardar CV inicial en Firestore
-      console.log('Guardando CV inicial en Firestore...');
-      const firestoreId = await firestoreService.createCV(initialCV);
-      
-      // Crear CV con ID de Firestore
-      const cvWithId: CV = {
-        id: firestoreId,
-        ...initialCV,
-        createdAt: new Date(),
-      };
-      
-      setCv(cvWithId);
-      
-      // Extraer texto de la imagen usando Google Vision AI
-      console.log('Extrayendo texto con Google Vision AI...');
-      const { text } = await extractText(imageUrl);
-      
-      console.log('Texto extraído:', text);
-      console.log('Longitud del texto:', text.length);
+      // Usar el texto más largo
+      const finalText = secondAttemptText.length > text.length ? secondAttemptText : text;
       
       // Actualizar Firestore con el texto extraído
-      await firestoreService.updateExtractedText(firestoreId, text);
+      await firestoreService.updateExtractedText(firestoreId, finalText);
       
       // Actualizar el estado local
       const cvWithText: CV = {
         ...cvWithId,
-        extractedText: text,
+        extractedText: finalText,
         status: 'processing'
       };
       
@@ -66,7 +82,7 @@ export default function Dashboard() {
       
       // Procesar el texto usando OpenAI
       console.log('Procesando texto con OpenAI...');
-      const { processedData } = await processText(text);
+      const { processedData } = await processText(finalText);
       
       // Actualizar Firestore con los datos procesados
       await firestoreService.updateProcessedData(firestoreId, processedData);
@@ -80,32 +96,56 @@ export default function Dashboard() {
       
       setCv(completedCV);
       
-      console.log('✅ Proceso completado exitosamente');
+    } else {
+      // Proceso normal si el texto es suficiente
+      await firestoreService.updateExtractedText(firestoreId, text);
       
-    } catch (err) {
-      console.error('❌ Error en el procesamiento:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Error en el procesamiento';
-      setError(errorMessage);
+      const cvWithText: CV = {
+        ...cvWithId,
+        extractedText: text,
+        status: 'processing'
+      };
       
-      // Marcar como error en Firestore si tenemos un ID
-      if (cv?.id) {
-        try {
-          await firestoreService.markAsError(cv.id, errorMessage);
-        } catch (firestoreError) {
-          console.error('Error actualizando estado de error en Firestore:', firestoreError);
-        }
-        
-        // Actualizar estado local
-        setCv({
-          ...cv,
-          status: 'error',
-          errorMessage
-        });
-      }
-    } finally {
-      setIsLoading(false);
+      setCv(cvWithText);
+      
+      console.log('Procesando texto con OpenAI...');
+      const { processedData } = await processText(text);
+      
+      await firestoreService.updateProcessedData(firestoreId, processedData);
+      
+      const completedCV: CV = {
+        ...cvWithText,
+        processedData,
+        status: 'completed'
+      };
+      
+      setCv(completedCV);
     }
-  };
+    
+    console.log('✅ Proceso completado exitosamente');
+    
+  } catch (err) {
+    console.error('❌ Error en el procesamiento:', err);
+    const errorMessage = err instanceof Error ? err.message : 'Error en el procesamiento';
+    setError(errorMessage);
+    
+    if (cv?.id) {
+      try {
+        await firestoreService.markAsError(cv.id, errorMessage);
+      } catch (firestoreError) {
+        console.error('Error actualizando estado de error en Firestore:', firestoreError);
+      }
+      
+      setCv({
+        ...cv,
+        status: 'error',
+        errorMessage
+      });
+    }
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleError = (errorMessage: string) => {
     setError(errorMessage);
