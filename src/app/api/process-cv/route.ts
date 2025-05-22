@@ -45,7 +45,7 @@ Devuelve SOLO un JSON válido con esta estructura exacta:
 }`;
 
     const completion = await openaiClient.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: "gpt-4.1-nano",
       messages: [
         {
           role: "system", 
@@ -57,7 +57,7 @@ Devuelve SOLO un JSON válido con esta estructura exacta:
         }
       ],
       temperature: 0,
-      max_tokens: 1500
+      max_tokens: 2500
     });
 
     const responseText = completion.choices[0]?.message?.content;
