@@ -49,8 +49,8 @@ export default function Dashboard() {
     setCv(cvWithId);
 
     // ⚡ ESPERAR MÁS TIEMPO para que la imagen esté completamente disponible
-    console.log('⏳ Esperando 7 segundos para que la imagen esté completamente disponible en Firebase...');
-    await new Promise(resolve => setTimeout(resolve, 7000));
+    console.log('⏳ Esperando 1 segundos para que la imagen esté completamente disponible en Firebase...');
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
     // ===== FASE 1: EXTRACCIÓN DE TEXTO (CRÍTICA) =====
     console.log('🔍 FASE 1: Extrayendo texto con Google Vision AI...');
