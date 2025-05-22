@@ -3,6 +3,7 @@ import { useState, useRef } from 'react';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { Button } from '@/components/ui/Button';
 import { FileUploaderProps } from '@/types/components';
+import { convertPdfToImages } from '@/services/pdfToImages';
 
 export const FileUploader: React.FC<FileUploaderProps> = ({ 
   onUploadComplete, 
@@ -11,13 +12,14 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isProcessingPdf, setIsProcessingPdf] = useState(false);
   const { uploadFile, isUploading } = useFileUpload();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const selectedFiles = Array.from(e.target.files);
-      setFiles(prevFiles => [...prevFiles, ...selectedFiles]);
+      await processFiles(selectedFiles);
     }
   };
 
@@ -31,13 +33,37 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
     setIsDragging(false);
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
     
     if (e.dataTransfer.files) {
       const droppedFiles = Array.from(e.dataTransfer.files);
-      setFiles(prevFiles => [...prevFiles, ...droppedFiles]);
+      await processFiles(droppedFiles);
+    }
+  };
+
+  const processFiles = async (newFiles: File[]) => {
+    setIsProcessingPdf(true);
+    try {
+      const processedFiles: File[] = [];
+      
+      for (const file of newFiles) {
+        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+          // Convertir PDF a imágenes
+          const images = await convertPdfToImages(file);
+          processedFiles.push(...images);
+        } else {
+          // Archivo de imagen normal
+          processedFiles.push(file);
+        }
+      }
+      
+      setFiles(prevFiles => [...prevFiles, ...processedFiles]);
+    } catch (error) {
+      onError('Error procesando archivos PDF');
+    } finally {
+      setIsProcessingPdf(false);
     }
   };
 
@@ -55,7 +81,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
       setUploadProgress(0);
       const urls: string[] = [];
       
-      // Subir cada archivo
+      // Subir cada archivo (ya convertido a imagen si era PDF)
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const url = await uploadFile(file, 'cvs');
@@ -109,7 +135,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
             accept="image/*,.pdf"
             onChange={handleFileChange}
             className="hidden"
-            multiple // Permitir múltiples archivos
+            multiple
           />
           
           <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -123,12 +149,20 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
             o <span className="text-blue-600 font-medium">haz clic para buscar</span>
           </p>
           <p className="mt-2 text-xs text-gray-500">
-            Puedes subir múltiples imágenes (ej: página 1, página 2...)
+            Puedes subir PDFs o imágenes (JPG, PNG)
           </p>
           <p className="text-xs text-gray-500">
-            Formatos aceptados: JPG, PNG, PDF
+            Los PDFs se convertirán automáticamente a imágenes
           </p>
         </div>
+        
+        {/* Indicador de procesamiento de PDF */}
+        {isProcessingPdf && (
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-3 flex items-center">
+            <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full mr-2"></div>
+            <span className="text-sm text-blue-700">Convirtiendo PDF a imágenes...</span>
+          </div>
+        )}
         
         {/* Lista de archivos seleccionados */}
         {files.length > 0 && (
@@ -179,7 +213,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
           <Button
             label={isUploading ? `Procesando... ${uploadProgress}%` : `Analizar ${files.length} archivo${files.length !== 1 ? 's' : ''} con IA`}
             onClick={handleUpload}
-            disabled={files.length === 0 || isUploading}
+            disabled={files.length === 0 || isUploading || isProcessingPdf}
             variant="primary"
           />
           
