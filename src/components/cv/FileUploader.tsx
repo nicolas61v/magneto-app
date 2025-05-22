@@ -8,15 +8,16 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
   onUploadComplete, 
   onError 
 }) => {
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
   const { uploadFile, isUploading } = useFileUpload();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
-      setFile(selectedFile);
+    if (e.target.files) {
+      const selectedFiles = Array.from(e.target.files);
+      setFiles(prevFiles => [...prevFiles, ...selectedFiles]);
     }
   };
 
@@ -34,29 +35,48 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
     e.preventDefault();
     setIsDragging(false);
     
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const droppedFile = e.dataTransfer.files[0];
-      setFile(droppedFile);
+    if (e.dataTransfer.files) {
+      const droppedFiles = Array.from(e.dataTransfer.files);
+      setFiles(prevFiles => [...prevFiles, ...droppedFiles]);
     }
   };
 
+  const removeFile = (index: number) => {
+    setFiles(files.filter((_, i) => i !== index));
+  };
+
   const handleUpload = async () => {
-    if (!file) {
-      onError('No se ha seleccionado ningún archivo');
+    if (files.length === 0) {
+      onError('No se han seleccionado archivos');
       return;
     }
 
     try {
-      const url = await uploadFile(file, 'cvs');
-      onUploadComplete(url);
+      setUploadProgress(0);
+      const urls: string[] = [];
       
-      // Resetear el input de archivo
+      // Subir cada archivo
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const url = await uploadFile(file, 'cvs');
+        urls.push(url);
+        
+        // Actualizar progreso
+        setUploadProgress(Math.round(((i + 1) / files.length) * 100));
+      }
+      
+      // Enviar todas las URLs
+      onUploadComplete(urls);
+      
+      // Resetear
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-      setFile(null);
+      setFiles([]);
+      setUploadProgress(0);
     } catch (error) {
-      onError(error instanceof Error ? error.message : 'Error al subir el archivo');
+      onError(error instanceof Error ? error.message : 'Error al subir los archivos');
+      setUploadProgress(0);
     }
   };
 
@@ -70,7 +90,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
         </svg>
-        Subir CV
+        Subir CV ({files.length} {files.length === 1 ? 'archivo' : 'archivos'})
       </h2>
       
       <div className="flex flex-col gap-4">
@@ -89,6 +109,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
             accept="image/*,.pdf"
             onChange={handleFileChange}
             className="hidden"
+            multiple // Permitir múltiples archivos
           />
           
           <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -96,53 +117,84 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
           </svg>
           
           <p className="text-center mb-2 font-medium">
-            {isDragging ? 'Suelta el archivo aquí' : 'Arrastra y suelta tu CV aquí'}
+            {isDragging ? 'Suelta los archivos aquí' : 'Arrastra y suelta tu CV aquí'}
           </p>
           <p className="text-center text-sm text-gray-600">
             o <span className="text-blue-600 font-medium">haz clic para buscar</span>
           </p>
           <p className="mt-2 text-xs text-gray-500">
-            Formatos aceptados: PDF, JPG, PNG
+            Puedes subir múltiples imágenes (ej: página 1, página 2...)
+          </p>
+          <p className="text-xs text-gray-500">
+            Formatos aceptados: JPG, PNG, PDF
           </p>
         </div>
         
-        {file && (
-          <div className="bg-gray-100 rounded-md p-3 flex items-center justify-between">
-            <div className="flex items-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <div>
-                <p className="text-sm font-medium truncate max-w-xs">{file.name}</p>
-                <p className="text-xs text-gray-600">{(file.size / (1024 * 1024)).toFixed(2)} MB</p>
+        {/* Lista de archivos seleccionados */}
+        {files.length > 0 && (
+          <div className="space-y-2 max-h-40 overflow-y-auto">
+            {files.map((file, index) => (
+              <div key={index} className="bg-gray-100 rounded-md p-3 flex items-center justify-between">
+                <div className="flex items-center">
+                  <span className="text-xs font-medium text-gray-500 mr-2">
+                    {index + 1}.
+                  </span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium truncate max-w-xs">{file.name}</p>
+                    <p className="text-xs text-gray-600">{(file.size / (1024 * 1024)).toFixed(2)} MB</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeFile(index);
+                  }}
+                  className="text-gray-600 hover:text-gray-900"
+                  type="button"
+                  title="Eliminar archivo"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
-            </div>
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                setFile(null);
+            ))}
+          </div>
+        )}
+        
+        {/* Barra de progreso */}
+        {isUploading && uploadProgress > 0 && (
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+        )}
+        
+        <div className="mt-2 flex gap-2">
+          <Button
+            label={isUploading ? `Procesando... ${uploadProgress}%` : `Analizar ${files.length} archivo${files.length !== 1 ? 's' : ''} con IA`}
+            onClick={handleUpload}
+            disabled={files.length === 0 || isUploading}
+            variant="primary"
+          />
+          
+          {files.length > 0 && !isUploading && (
+            <Button
+              label="Limpiar"
+              onClick={() => {
+                setFiles([]);
                 if (fileInputRef.current) {
                   fileInputRef.current.value = '';
                 }
               }}
-              className="text-gray-600 hover:text-gray-900"
-              type="button"
-              title="Eliminar archivo"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        )}
-        
-        <div className="mt-2">
-          <Button
-            label={isUploading ? 'Procesando...' : 'Analizar CV con IA'}
-            onClick={handleUpload}
-            disabled={!file || isUploading}
-            variant="primary"
-          />
+              variant="outline"
+            />
+          )}
         </div>
       </div>
     </div>

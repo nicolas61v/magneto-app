@@ -15,18 +15,25 @@ export default function Dashboard() {
   const [cv, setCv] = useState<CV | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentProgress, setCurrentProgress] = useState<string>('');
   
   const { extractText, isExtracting } = useVisionAI();
   const { processText, isProcessing } = useOpenAI();
 
-  const handleUploadComplete = async (imageUrl: string) => {
+  const handleUploadComplete = async (imageUrls: string | string[]) => {
     try {
       setIsLoading(true);
       setError(null);
       
+      // Convertir a array si es string único (compatibilidad hacia atrás)
+      const urls = Array.isArray(imageUrls) ? imageUrls : [imageUrls];
+      
+      setCurrentProgress(`Procesando ${urls.length} imagen${urls.length > 1 ? 'es' : ''}...`);
+      
       // Crear CV inicial
       const initialCV: Omit<CV, 'id' | 'createdAt'> = {
-        originalImageUrl: imageUrl,
+        originalImageUrl: urls[0], // Primera imagen como principal
+        additionalImageUrls: urls.slice(1), // Resto de imágenes
         extractedText: '',
         processedData: null,
         status: 'extracting'
@@ -43,30 +50,53 @@ export default function Dashboard() {
       
       setCv(cvWithId);
 
-      // Solo esperar 1 segundo para asegurar que Firebase procese la URL
+      // Esperar un momento para que Firebase procese las URLs
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // FASE 1: EXTRACCIÓN DE TEXTO (un solo intento)
-      const { text: extractedText } = await extractText(imageUrl);
+      // FASE 1: EXTRACCIÓN DE TEXTO DE TODAS LAS IMÁGENES
+      let allExtractedText = '';
       
-      // Validación mínima
-      if (!extractedText || extractedText.trim().length < 50) {
-        throw new Error('No se pudo extraer texto suficiente de la imagen');
+      for (let i = 0; i < urls.length; i++) {
+        setCurrentProgress(`Extrayendo texto de imagen ${i + 1} de ${urls.length}...`);
+        
+        try {
+          const { text } = await extractText(urls[i]);
+          
+          if (text && text.trim().length > 0) {
+            // Agregar separador entre páginas
+            if (allExtractedText.length > 0) {
+              allExtractedText += '\n\n--- PÁGINA ' + (i + 1) + ' ---\n\n';
+            }
+            allExtractedText += text;
+          }
+        } catch (err) {
+          console.error(`Error extrayendo texto de imagen ${i + 1}:`, err);
+          // Continuar con las demás imágenes
+        }
       }
       
+      // Validación del texto total
+      if (!allExtractedText || allExtractedText.trim().length < 50) {
+        throw new Error('No se pudo extraer texto suficiente de las imágenes');
+      }
+      
+      setCurrentProgress('Actualizando base de datos...');
+      
       // Actualizar Firestore
-      await firestoreService.updateExtractedText(firestoreId, extractedText);
+      await firestoreService.updateExtractedText(firestoreId, allExtractedText);
       
       const cvWithText: CV = {
         ...cvWithId,
-        extractedText: extractedText,
+        extractedText: allExtractedText,
         status: 'processing'
       };
       
       setCv(cvWithText);
       
       // FASE 2: PROCESAMIENTO CON IA
-      const { processedData } = await processText(extractedText);
+      setCurrentProgress('Analizando información con IA...');
+      
+      const { processedData } = await processText(allExtractedText);
       
       // Actualizar Firestore con datos procesados
       await firestoreService.updateProcessedData(firestoreId, processedData);
@@ -79,11 +109,13 @@ export default function Dashboard() {
       };
       
       setCv(completedCV);
+      setCurrentProgress('');
       
     } catch (err) {
       console.error('Error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Error en el procesamiento';
       setError(errorMessage);
+      setCurrentProgress('');
       
       if (cv?.id) {
         await firestoreService.markAsError(cv.id, errorMessage);
@@ -137,7 +169,7 @@ export default function Dashboard() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <span className="text-sm">Subir una imagen de un CV</span>
+                  <span className="text-sm">Subir múltiples imágenes de un CV</span>
                 </div>
                 <div className="flex items-start">
                   <div className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">
@@ -163,6 +195,9 @@ export default function Dashboard() {
                   </div>
                   <span className="text-sm">Guardar en base de datos y generar PDF</span>
                 </div>
+              </div>
+              <div className="bg-blue-50 text-blue-700 p-2 rounded text-sm">
+                💡 <strong>Tip:</strong> Puedes subir varias fotos si tu CV tiene múltiples páginas
               </div>
             </div>
           </div>
@@ -191,11 +226,11 @@ export default function Dashboard() {
               <div className="mt-6 card p-6 flex flex-col items-center justify-center text-center">
                 <Loader size="md" color="primary" />
                 <p className="mt-4 text-secondary-foreground">
-                  {isExtracting 
+                  {currentProgress || (isExtracting 
                     ? "Extrayendo texto del documento..." 
                     : isProcessing 
                       ? "Procesando información con IA..." 
-                      : "Guardando en base de datos..."}
+                      : "Guardando en base de datos...")}
                 </p>
                 <div className="w-full bg-secondary h-2 rounded-full mt-4 overflow-hidden">
                   <div className="animate-shimmer h-full rounded-full"></div>
@@ -222,7 +257,12 @@ export default function Dashboard() {
               </svg>
               <p className="font-medium">¡Procesamiento completado y guardado!</p>
             </div>
-            <p className="mt-1 ml-7 text-sm">CV guardado en Firestore con ID: {cv.id}</p>
+            <p className="mt-1 ml-7 text-sm">
+              CV guardado en Firestore con ID: {cv.id}
+              {cv.additionalImageUrls && cv.additionalImageUrls.length > 0 && 
+                ` (${cv.additionalImageUrls.length + 1} páginas procesadas)`
+              }
+            </p>
           </div>
         )}
       </main>

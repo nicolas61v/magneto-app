@@ -5,10 +5,7 @@ import { ResultViewerProps } from '@/types/components';
 
 export const ResultViewer: React.FC<ResultViewerProps> = ({ cv, isLoading }) => {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-
-  // Debug: Log de los datos recibidos
-  console.log('ResultViewer - CV completo:', cv);
-  console.log('ResultViewer - processedData:', cv?.processedData);
+  const [showImages, setShowImages] = useState(false);
 
   if (isLoading) {
     return <div className="p-6 text-center">Cargando resultados...</div>;
@@ -19,29 +16,68 @@ export const ResultViewer: React.FC<ResultViewerProps> = ({ cv, isLoading }) => 
   }
 
   const { personalInfo, education, experience, skills, summary, languages } = cv.processedData;
-
-  // Debug: Log específico de cada sección
-  console.log('Datos específicos:');
-  console.log('- personalInfo:', personalInfo);
-  console.log('- summary:', summary);
-  console.log('- experience:', experience);
-  console.log('- education:', education);
-  console.log('- skills:', skills);
-  console.log('- languages:', languages);
+  const totalImages = 1 + (cv.additionalImageUrls?.length || 0);
 
   const handlePdfGenerated = (url: string) => {
     setPdfUrl(url);
-    console.log('PDF generado con URL:', url);
   };
 
   return (
     <div className="p-6 border rounded-lg bg-white shadow-sm">
-      <h2 className="text-xl font-semibold mb-4 flex items-center">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        Información Extraída
-      </h2>
+      <div className="flex justify-between items-start mb-4">
+        <h2 className="text-xl font-semibold flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Información Extraída
+        </h2>
+        
+        {totalImages > 1 && (
+          <button
+            onClick={() => setShowImages(!showImages)}
+            className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            {showImages ? 'Ocultar' : 'Ver'} {totalImages} imágenes
+          </button>
+        )}
+      </div>
+
+      {/* Vista de imágenes */}
+      {showImages && (
+        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+          <h3 className="text-sm font-medium text-gray-700 mb-3">Imágenes procesadas:</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="relative group">
+              <img 
+                src={cv.originalImageUrl} 
+                alt="CV Página 1" 
+                className="w-full h-40 object-cover rounded border border-gray-300 cursor-pointer hover:border-blue-500"
+                onClick={() => window.open(cv.originalImageUrl, '_blank')}
+              />
+              <span className="absolute bottom-1 right-1 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                Página 1
+              </span>
+            </div>
+            
+            {cv.additionalImageUrls?.map((url, index) => (
+              <div key={index} className="relative group">
+                <img 
+                  src={url} 
+                  alt={`CV Página ${index + 2}`} 
+                  className="w-full h-40 object-cover rounded border border-gray-300 cursor-pointer hover:border-blue-500"
+                  onClick={() => window.open(url, '_blank')}
+                />
+                <span className="absolute bottom-1 right-1 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                  Página {index + 2}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       
       <div className="space-y-6">
         {/* Información Personal */}

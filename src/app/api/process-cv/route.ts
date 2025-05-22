@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   try {
     const { text } = await request.json();
     
-    if (!text || text.length < 10) {
+    if (!text || text.length < 50) {
       return NextResponse.json(
         { error: 'Texto insuficiente para procesar' },
         { status: 400 }
@@ -25,8 +25,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Prompt simplificado y directo
-    const systemPrompt = `Extrae información de CV y devuelve SOLO JSON válido con esta estructura exacta:
+    // Prompt mejorado para manejar múltiples páginas y evitar duplicados
+    const systemPrompt = `Eres un experto en análisis de CVs. Tu tarea es extraer información de un CV que puede estar en múltiples páginas.
+
+IMPORTANTE:
+- El texto puede contener marcadores como "--- PÁGINA X ---" separando diferentes páginas
+- Elimina información duplicada (a veces la misma info aparece en varias páginas)
+- Combina información relacionada de diferentes páginas
+- Si encuentras la misma experiencia laboral o educación en múltiples páginas, fusiónalas en una sola entrada
+
+Devuelve SOLO un JSON válido con esta estructura exacta:
 {
   "personalInfo": {"name": "", "email": "", "phone": "", "location": ""},
   "summary": "",
@@ -37,7 +45,7 @@ export async function POST(request: NextRequest) {
 }`;
 
     const completion = await openaiClient.chat.completions.create({
-      model: "gpt-4.1-nano", // Modelo más rápido
+      model: "gpt-3.5-turbo",
       messages: [
         {
           role: "system", 
@@ -45,11 +53,11 @@ export async function POST(request: NextRequest) {
         },
         {
           role: "user",
-          content: `CV:\n${text}`
+          content: `Analiza el siguiente CV y extrae la información estructurada. Recuerda eliminar duplicados si el mismo contenido aparece en múltiples páginas:\n\n${text}`
         }
       ],
       temperature: 0,
-      max_tokens: 3500 // Reducido para respuesta más rápida
+      max_tokens: 1500
     });
 
     const responseText = completion.choices[0]?.message?.content;
