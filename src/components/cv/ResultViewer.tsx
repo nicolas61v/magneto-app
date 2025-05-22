@@ -6,6 +6,10 @@ import { ResultViewerProps } from '@/types/components';
 export const ResultViewer: React.FC<ResultViewerProps> = ({ cv, isLoading }) => {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
+  // Debug: Log de los datos recibidos
+  console.log('ResultViewer - CV completo:', cv);
+  console.log('ResultViewer - processedData:', cv?.processedData);
+
   if (isLoading) {
     return <div className="p-6 text-center">Cargando resultados...</div>;
   }
@@ -14,83 +18,171 @@ export const ResultViewer: React.FC<ResultViewerProps> = ({ cv, isLoading }) => 
     return <div className="p-6 text-center">No hay datos para mostrar</div>;
   }
 
-  const { personalInfo, education, experience, skills, summary } = cv.processedData;
+  const { personalInfo, education, experience, skills, summary, languages } = cv.processedData;
+
+  // Debug: Log específico de cada sección
+  console.log('Datos específicos:');
+  console.log('- personalInfo:', personalInfo);
+  console.log('- summary:', summary);
+  console.log('- experience:', experience);
+  console.log('- education:', education);
+  console.log('- skills:', skills);
+  console.log('- languages:', languages);
 
   const handlePdfGenerated = (url: string) => {
     setPdfUrl(url);
+    console.log('PDF generado con URL:', url);
   };
 
   return (
     <div className="p-6 border rounded-lg bg-white shadow-sm">
-      <h2 className="text-xl font-semibold mb-4">Información Extraída</h2>
+      <h2 className="text-xl font-semibold mb-4 flex items-center">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Información Extraída
+      </h2>
       
       <div className="space-y-6">
-        <div>
-          <h3 className="text-lg font-medium">Información Personal</h3>
-          <p><strong>Nombre:</strong> {personalInfo.name}</p>
-          <p><strong>Email:</strong> {personalInfo.email}</p>
-          {personalInfo.phone && <p><strong>Teléfono:</strong> {personalInfo.phone}</p>}
-          {personalInfo.location && <p><strong>Ubicación:</strong> {personalInfo.location}</p>}
-        </div>
-
-        <div>
-          <h3 className="text-lg font-medium">Resumen</h3>
-          <p>{summary}</p>
-        </div>
-
-        <div>
-          <h3 className="text-lg font-medium">Experiencia</h3>
-          <ul className="list-disc pl-5">
-            {experience.map((exp, idx: number) => (
-              <li key={idx}>
-                <p><strong>{exp.position}</strong> en {exp.company}</p>
-                {(exp.startDate || exp.endDate) && (
-                  <p className="text-sm text-gray-600">
-                    {exp.startDate} - {exp.endDate || 'Actual'}
-                  </p>
-                )}
-                {exp.description && <p>{exp.description}</p>}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div>
-          <h3 className="text-lg font-medium">Educación</h3>
-          <ul className="list-disc pl-5">
-            {education.map((edu, idx: number) => (
-              <li key={idx}>
-                <p><strong>{edu.degree}</strong> en {edu.institution}</p>
-                {(edu.startDate || edu.endDate) && (
-                  <p className="text-sm text-gray-600">
-                    {edu.startDate} - {edu.endDate || 'Actual'}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div>
-          <h3 className="text-lg font-medium">Habilidades</h3>
-          <div className="flex flex-wrap gap-2">
-            {skills.map((skill, idx: number) => (
-              <span key={idx} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                {skill}
-              </span>
-            ))}
+        {/* Información Personal */}
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            Información Personal
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <p><strong>Nombre:</strong> {personalInfo.name || 'No proporcionado'}</p>
+            <p><strong>Email:</strong> {personalInfo.email && personalInfo.email !== 'null' ? personalInfo.email : 'No proporcionado'}</p>
+            {personalInfo.phone && <p><strong>Teléfono:</strong> {personalInfo.phone}</p>}
+            {personalInfo.location && <p><strong>Ubicación:</strong> {personalInfo.location}</p>}
           </div>
         </div>
 
-        <div className="flex gap-4 mt-6">
+        {/* Resumen */}
+        {summary && summary.trim() !== '' && (
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Resumen
+            </h3>
+            <p className="text-gray-700">{summary}</p>
+          </div>
+        )}
+
+        {/* Experiencia */}
+        {experience && experience.length > 0 && (
+          <div className="bg-green-50 p-4 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 112 2v6a2 2 0 01-2 2H8a2 2 0 01-2-2V8a2 2 0 012-2h8z" />
+              </svg>
+              Experiencia ({experience.length})
+            </h3>
+            <div className="space-y-4">
+              {experience.map((exp, idx) => (
+                <div key={idx} className="border-l-4 border-green-500 pl-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                    <h4 className="font-semibold text-gray-900">
+                      {exp.position || 'Puesto no especificado'}
+                    </h4>
+                    {exp.company && <span className="text-gray-600">{exp.company}</span>}
+                  </div>
+                  {(exp.startDate || exp.endDate) && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      {exp.startDate || ''} - {exp.endDate || 'Actual'}
+                    </p>
+                  )}
+                  {exp.description && <p className="text-gray-700 mt-2">{exp.description}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Educación */}
+        {education && education.length > 0 && (
+          <div className="bg-purple-50 p-4 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+              </svg>
+              Educación ({education.length})
+            </h3>
+            <div className="space-y-3">
+              {education.map((edu, idx) => (
+                <div key={idx} className="border-l-4 border-purple-500 pl-4">
+                  <h4 className="font-semibold text-gray-900">
+                    {edu.degree || 'Título no especificado'}
+                  </h4>
+                  {edu.institution && <p className="text-gray-600">{edu.institution}</p>}
+                  {(edu.startDate || edu.endDate) && (
+                    <p className="text-sm text-gray-500">
+                      {edu.startDate || ''} - {edu.endDate || 'Actual'}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Habilidades */}
+        {skills && skills.length > 0 && (
+          <div className="bg-yellow-50 p-4 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              Habilidades ({skills.length})
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {skills.map((skill, idx) => (
+                <span key={idx} className="px-3 py-1 bg-yellow-200 text-yellow-800 rounded-full text-sm font-medium">
+                  {skill}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Idiomas */}
+        {languages && languages.length > 0 && (
+          <div className="bg-indigo-50 p-4 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+              </svg>
+              Idiomas ({languages.length})
+            </h3>
+            <div className="space-y-2">
+              {languages.map((lang, idx) => (
+                <div key={idx} className="flex justify-between items-center">
+                  <span className="font-medium">{lang.name}</span>
+                  {lang.level && <span className="text-sm text-gray-600 bg-indigo-100 px-2 py-1 rounded">{lang.level}</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Botones de acción */}
+        <div className="flex gap-4 mt-6 pt-6 border-t">
           <PdfGenerator cvData={cv.processedData} onGenerate={handlePdfGenerated} />
           
           {pdfUrl && (
             <a 
               href={pdfUrl} 
-              download="cv_resumen.pdf"
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition"
+              download={`cv_${personalInfo.name?.replace(/\s+/g, '_').toLowerCase() || 'resumen'}.pdf`}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition flex items-center gap-2"
             >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
               Descargar PDF
             </a>
           )}
