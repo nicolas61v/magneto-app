@@ -13,13 +13,9 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
   const { uploadFile, isUploading } = useFileUpload();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  console.log('FileUploader renderizado, isUploading:', isUploading); // Debug
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('handleFileChange llamado'); // Debug
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
-      console.log('Archivo seleccionado:', selectedFile.name); // Debug
       setFile(selectedFile);
     }
   };
@@ -40,24 +36,18 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
     
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const droppedFile = e.dataTransfer.files[0];
-      console.log('Archivo arrastrado:', droppedFile.name); // Debug
       setFile(droppedFile);
     }
   };
 
   const handleUpload = async () => {
-    console.log('handleUpload llamado, archivo:', file); // Debug
-    
     if (!file) {
-      console.log('No hay archivo seleccionado'); // Debug
       onError('No se ha seleccionado ningún archivo');
       return;
     }
 
     try {
-      console.log('Iniciando upload...'); // Debug
       const url = await uploadFile(file, 'cvs');
-      console.log('Upload completado, URL:', url); // Debug
       onUploadComplete(url);
       
       // Resetear el input de archivo
@@ -66,13 +56,11 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
       }
       setFile(null);
     } catch (error) {
-      console.error('Error en upload:', error); // Debug
       onError(error instanceof Error ? error.message : 'Error al subir el archivo');
     }
   };
 
   const handleBrowseClick = () => {
-    console.log('handleBrowseClick llamado'); // Debug
     fileInputRef.current?.click();
   };
 
@@ -132,7 +120,6 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
             <button 
               onClick={(e) => {
                 e.stopPropagation();
-                console.log('Eliminando archivo'); // Debug
                 setFile(null);
                 if (fileInputRef.current) {
                   fileInputRef.current.value = '';
@@ -149,36 +136,13 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
           </div>
         )}
         
-        {/* DEBUG: Botón simple para probar */}
-        <button
-          onClick={() => {
-            console.log('Botón de prueba clickeado');
-            alert('¡El botón funciona!');
-          }}
-          className="w-full px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition"
-        >
-          BOTÓN DE PRUEBA - ¿FUNCIONA?
-        </button>
-        
-        {/* Botón original */}
         <div className="mt-2">
           <Button
             label={isUploading ? 'Procesando...' : 'Analizar CV con IA'}
-            onClick={() => {
-              console.log('Button onClick disparado'); // Debug
-              handleUpload();
-            }}
+            onClick={handleUpload}
             disabled={!file || isUploading}
             variant="primary"
           />
-        </div>
-        
-        {/* INFO DE DEBUG */}
-        <div className="text-xs text-gray-500 mt-2">
-          <p>Debug Info:</p>
-          <p>Archivo seleccionado: {file ? file.name : 'Ninguno'}</p>
-          <p>isUploading: {isUploading ? 'Sí' : 'No'}</p>
-          <p>Botón deshabilitado: {(!file || isUploading) ? 'Sí' : 'No'}</p>
         </div>
       </div>
     </div>

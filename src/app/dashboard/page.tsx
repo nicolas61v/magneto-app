@@ -20,193 +20,83 @@ export default function Dashboard() {
   const { processText, isProcessing } = useOpenAI();
 
   const handleUploadComplete = async (imageUrl: string) => {
-  try {
-    setIsLoading(true);
-    setError(null);
-    
-    console.log('🚀 INICIANDO PROCESO DE ANÁLISIS DE CV');
-    console.log('📸 URL de imagen:', imageUrl);
-    
-    // Crear un objeto CV inicial
-    const initialCV: Omit<CV, 'id' | 'createdAt'> = {
-      originalImageUrl: imageUrl,
-      extractedText: '',
-      processedData: null,
-      status: 'extracting'
-    };
-    
-    // Guardar CV inicial en Firestore
-    console.log('💾 Guardando CV inicial en Firestore...');
-    const firestoreId = await firestoreService.createCV(initialCV);
-    
-    // Crear CV con ID de Firestore
-    const cvWithId: CV = {
-      id: firestoreId,
-      ...initialCV,
-      createdAt: new Date(),
-    };
-    
-    setCv(cvWithId);
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Crear CV inicial
+      const initialCV: Omit<CV, 'id' | 'createdAt'> = {
+        originalImageUrl: imageUrl,
+        extractedText: '',
+        processedData: null,
+        status: 'extracting'
+      };
+      
+      // Guardar en Firestore
+      const firestoreId = await firestoreService.createCV(initialCV);
+      
+      const cvWithId: CV = {
+        id: firestoreId,
+        ...initialCV,
+        createdAt: new Date(),
+      };
+      
+      setCv(cvWithId);
 
-    // ⚡ ESPERAR MÁS TIEMPO para que la imagen esté completamente disponible
-    console.log('⏳ Esperando 1 segundos para que la imagen esté completamente disponible en Firebase...');
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // ===== FASE 1: EXTRACCIÓN DE TEXTO (CRÍTICA) =====
-    console.log('🔍 FASE 1: Extrayendo texto con Google Vision AI...');
-    
-    let extractedText = '';
-    let attempts = 0;
-    const maxAttempts = 3;
-    
-    while (attempts < maxAttempts && extractedText.length < 100) {
-      attempts++;
-      console.log(`🔄 Intento ${attempts}/${maxAttempts} de extracción de texto...`);
+      // Solo esperar 1 segundo para asegurar que Firebase procese la URL
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      try {
-        const { text } = await extractText(imageUrl);
-        extractedText = text;
-        
-        console.log('📋 Resultado de extracción:');
-        console.log('- Longitud del texto:', text.length);
-        // console.log('- Método usado:', debugInfo?.method || 'desconocido');
-        console.log('- Primeras 200 caracteres:', text.substring(0, 200));
-        console.log('- Últimas 100 caracteres:', text.slice(-100));
-        
-        // Verificar calidad del texto extraído
-        if (text.length < 50) {
-          console.log(`⚠️ ADVERTENCIA: Texto muy corto en intento ${attempts} (${text.length} caracteres)`);
-          
-          if (attempts < maxAttempts) {
-            console.log('⏳ Esperando 3 segundos antes del siguiente intento...');
-            await new Promise(resolve => setTimeout(resolve, 3000));
-            continue;
-          }
-        } else {
-          console.log(`✅ Texto extraído satisfactoriamente en intento ${attempts}`);
-          break;
-        }
-        
-      } catch (extractError) {
-        console.error(`❌ Error en intento ${attempts} de extracción:`, extractError);
-        
-        if (attempts < maxAttempts) {
-          console.log('⏳ Esperando 5 segundos antes del siguiente intento...');
-          await new Promise(resolve => setTimeout(resolve, 5000));
-          continue;
-        } else {
-          throw extractError;
-        }
+      // FASE 1: EXTRACCIÓN DE TEXTO (un solo intento)
+      const { text: extractedText } = await extractText(imageUrl);
+      
+      // Validación mínima
+      if (!extractedText || extractedText.trim().length < 50) {
+        throw new Error('No se pudo extraer texto suficiente de la imagen');
       }
-    }
-    
-    // ===== VALIDACIÓN CRÍTICA DEL TEXTO EXTRAÍDO =====
-    console.log('🔍 VALIDANDO TEXTO EXTRAÍDO...');
-    
-    if (!extractedText || extractedText.trim().length === 0) {
-      throw new Error('No se pudo extraer texto de la imagen después de múltiples intentos');
-    }
-    
-    if (extractedText.length < 30) {
-      throw new Error(`Texto extraído muy corto (${extractedText.length} caracteres). Verifica que la imagen tenga texto legible y suficiente contenido.`);
-    }
-    
-    // Verificar que el texto contiene más que solo un nombre
-    const lines = extractedText.split('\n').filter(line => line.trim().length > 2);
-    if (lines.length < 3) {
-      throw new Error(`El texto extraído tiene muy pocas líneas (${lines.length}). Asegúrate de que la imagen sea clara y contenga un CV completo.`);
-    }
-    
-    // Buscar indicadores de que es un CV completo
-    const cvIndicators = [
-      'experiencia', 'educacion', 'educación', 'habilidades', 'skills',
-      'trabajo', 'empleo', 'universidad', 'colegio', 'telefono', 'teléfono',
-      'email', 'correo', 'direccion', 'dirección'
-    ];
-    
-    const textLower = extractedText.toLowerCase();
-    const foundIndicators = cvIndicators.filter(indicator => textLower.includes(indicator));
-    
-    console.log('🔍 Indicadores de CV encontrados:', foundIndicators);
-    
-    if (foundIndicators.length < 2) {
-      console.log('⚠️ ADVERTENCIA: Pocos indicadores de CV encontrados. Continuando de todas formas...');
-    }
-    
-    console.log('✅ VALIDACIÓN DE TEXTO COMPLETADA');
-    console.log('📊 Estadísticas finales del texto:');
-    console.log('- Longitud total:', extractedText.length);
-    console.log('- Líneas válidas:', lines.length);
-    console.log('- Indicadores de CV:', foundIndicators.length);
-    
-    // Actualizar Firestore con el texto extraído
-    await firestoreService.updateExtractedText(firestoreId, extractedText);
-    
-    const cvWithText: CV = {
-      ...cvWithId,
-      extractedText: extractedText,
-      status: 'processing'
-    };
-    
-    setCv(cvWithText);
-    
-    // ===== FASE 2: PROCESAMIENTO CON IA (SOLO SI EL TEXTO ES VÁLIDO) =====
-    console.log('🤖 FASE 2: Procesando texto con OpenAI...');
-    console.log('📤 Enviando a OpenAI:');
-    console.log('- Longitud del texto:', extractedText.length);
-    console.log('- Primeras 300 caracteres:', extractedText.substring(0, 300));
-    
-    const { processedData } = await processText(extractedText);
-    
-    console.log('📥 Respuesta de OpenAI recibida:');
-    console.log('- Nombre extraído:', processedData.personalInfo?.name || 'NO ENCONTRADO');
-    console.log('- Email extraído:', processedData.personalInfo?.email || 'NO ENCONTRADO');
-    console.log('- Experiencias:', processedData.experience?.length || 0);
-    console.log('- Educación:', processedData.education?.length || 0);
-    console.log('- Habilidades:', processedData.skills?.length || 0);
-    
-    // Validar que OpenAI procesó correctamente
-    if (!processedData.personalInfo?.name || processedData.personalInfo.name.trim().length === 0) {
-      console.log('⚠️ ADVERTENCIA: OpenAI no extrajo el nombre correctamente');
-    }
-    
-    // Actualizar Firestore con los datos procesados
-    await firestoreService.updateProcessedData(firestoreId, processedData);
-    
-    // Actualizar el estado local con los datos completados
-    const completedCV: CV = {
-      ...cvWithText,
-      processedData,
-      status: 'completed'
-    };
-    
-    setCv(completedCV);
-    
-    console.log('🎉 PROCESO COMPLETADO EXITOSAMENTE');
-    console.log('✅ CV procesado y guardado con ID:', firestoreId);
-    
-  } catch (err) {
-    console.error('❌ ERROR EN EL PROCESAMIENTO:', err);
-    const errorMessage = err instanceof Error ? err.message : 'Error en el procesamiento';
-    setError(errorMessage);
-    
-    if (cv?.id) {
-      try {
+      
+      // Actualizar Firestore
+      await firestoreService.updateExtractedText(firestoreId, extractedText);
+      
+      const cvWithText: CV = {
+        ...cvWithId,
+        extractedText: extractedText,
+        status: 'processing'
+      };
+      
+      setCv(cvWithText);
+      
+      // FASE 2: PROCESAMIENTO CON IA
+      const { processedData } = await processText(extractedText);
+      
+      // Actualizar Firestore con datos procesados
+      await firestoreService.updateProcessedData(firestoreId, processedData);
+      
+      // Actualizar estado final
+      const completedCV: CV = {
+        ...cvWithText,
+        processedData,
+        status: 'completed'
+      };
+      
+      setCv(completedCV);
+      
+    } catch (err) {
+      console.error('Error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error en el procesamiento';
+      setError(errorMessage);
+      
+      if (cv?.id) {
         await firestoreService.markAsError(cv.id, errorMessage);
-      } catch (firestoreError) {
-        console.error('Error actualizando estado de error en Firestore:', firestoreError);
+        setCv({
+          ...cv,
+          status: 'error',
+          errorMessage
+        });
       }
-      
-      setCv({
-        ...cv,
-        status: 'error',
-        errorMessage
-      });
+    } finally {
+      setIsLoading(false);
     }
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   const handleError = (errorMessage: string) => {
     setError(errorMessage);
