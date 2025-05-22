@@ -6,6 +6,7 @@ import { FileUploader } from '@/components/cv/FileUploader';
 import { ResultViewer } from '@/components/cv/ResultViewer';
 import { useVisionAI } from '@/hooks/useVisionAI';
 import { useOpenAI } from '@/hooks/useOpenAI';
+import { firestoreService } from '@/services/firestore';
 import { CV } from '@/types/cv';
 import { Loader } from '@/components/ui/Loader';
 import { Navbar } from '@/components/layout/Navbar';
@@ -24,33 +25,53 @@ export default function Dashboard() {
       setError(null);
       
       // Crear un objeto CV inicial
-      const initialCV: CV = {
-        id: Date.now().toString(),
+      const initialCV: Omit<CV, 'id' | 'createdAt'> = {
         originalImageUrl: imageUrl,
         extractedText: '',
         processedData: null,
-        createdAt: new Date(),
         status: 'extracting'
       };
       
-      setCv(initialCV);
+      // Guardar CV inicial en Firestore
+      console.log('Guardando CV inicial en Firestore...');
+      const firestoreId = await firestoreService.createCV(initialCV);
+      
+      // Crear CV con ID de Firestore
+      const cvWithId: CV = {
+        id: firestoreId,
+        ...initialCV,
+        createdAt: new Date(),
+      };
+      
+      setCv(cvWithId);
       
       // Extraer texto de la imagen usando Google Vision AI
+      console.log('Extrayendo texto con Google Vision AI...');
       const { text } = await extractText(imageUrl);
       
-      // Actualizar el estado del CV con el texto extraído
+      console.log('Texto extraído:', text);
+      console.log('Longitud del texto:', text.length);
+      
+      // Actualizar Firestore con el texto extraído
+      await firestoreService.updateExtractedText(firestoreId, text);
+      
+      // Actualizar el estado local
       const cvWithText: CV = {
-        ...initialCV,
+        ...cvWithId,
         extractedText: text,
         status: 'processing'
       };
       
       setCv(cvWithText);
       
-      // Procesar el texto usando Google AI Studio (Gemini)
+      // Procesar el texto usando OpenAI
+      console.log('Procesando texto con OpenAI...');
       const { processedData } = await processText(text);
       
-      // Actualizar el estado del CV con los datos procesados
+      // Actualizar Firestore con los datos procesados
+      await firestoreService.updateProcessedData(firestoreId, processedData);
+      
+      // Actualizar el estado local con los datos completados
       const completedCV: CV = {
         ...cvWithText,
         processedData,
@@ -58,15 +79,27 @@ export default function Dashboard() {
       };
       
       setCv(completedCV);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error en el procesamiento');
       
-      // Actualizar el estado del CV con el error
-      if (cv) {
+      console.log('✅ Proceso completado exitosamente');
+      
+    } catch (err) {
+      console.error('❌ Error en el procesamiento:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error en el procesamiento';
+      setError(errorMessage);
+      
+      // Marcar como error en Firestore si tenemos un ID
+      if (cv?.id) {
+        try {
+          await firestoreService.markAsError(cv.id, errorMessage);
+        } catch (firestoreError) {
+          console.error('Error actualizando estado de error en Firestore:', firestoreError);
+        }
+        
+        // Actualizar estado local
         setCv({
           ...cv,
           status: 'error',
-          errorMessage: err instanceof Error ? err.message : 'Error desconocido'
+          errorMessage
         });
       }
     } finally {
@@ -129,7 +162,7 @@ export default function Dashboard() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <span className="text-sm">Analizar la información con Google AI Studio</span>
+                  <span className="text-sm">Analizar la información con OpenAI</span>
                 </div>
                 <div className="flex items-start">
                   <div className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">
@@ -137,7 +170,7 @@ export default function Dashboard() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <span className="text-sm">Generar un resumen estructurado en formato PDF</span>
+                  <span className="text-sm">Guardar en base de datos y generar PDF</span>
                 </div>
               </div>
             </div>
@@ -171,7 +204,7 @@ export default function Dashboard() {
                     ? "Extrayendo texto del documento..." 
                     : isProcessing 
                       ? "Procesando información con IA..." 
-                      : "Procesando..."}
+                      : "Guardando en base de datos..."}
                 </p>
                 <div className="w-full bg-secondary h-2 rounded-full mt-4 overflow-hidden">
                   <div className="animate-shimmer h-full rounded-full"></div>
@@ -196,9 +229,9 @@ export default function Dashboard() {
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-green-600 dark:text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p className="font-medium">¡Procesamiento completado con éxito!</p>
+              <p className="font-medium">¡Procesamiento completado y guardado!</p>
             </div>
-            <p className="mt-1 ml-7 text-sm">Puedes generar un PDF con la información extraída.</p>
+            <p className="mt-1 ml-7 text-sm">CV guardado en Firestore con ID: {cv.id}</p>
           </div>
         )}
       </main>
@@ -206,7 +239,7 @@ export default function Dashboard() {
       <footer className="bg-card border-t border-border mt-12 py-6">
         <div className="container mx-auto px-4">
           <p className="text-center text-secondary-foreground text-sm">
-            © {new Date().getFullYear()} Analizador de CV con IA. Desarrollado con Next.js, Firebase y Google AI.
+            © {new Date().getFullYear()} Analizador de CV con IA. Desarrollado con Next.js, Firebase y OpenAI.
           </p>
         </div>
       </footer>
