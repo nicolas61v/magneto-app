@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { FileUploader } from '@/components/cv/FileUploader';
 import { ResultViewer } from '@/components/cv/ResultViewer';
 import { useVisionAI } from '@/hooks/useVisionAI';
-import { useGeminiAI } from '@/hooks/useGeminiAI';
+import { useGeminiAI } from '@/hooks/useOpenAI';
 import { CV } from '@/types/cv';
 import { Loader } from '@/components/ui/Loader';
 import { Navbar } from '@/components/layout/Navbar';

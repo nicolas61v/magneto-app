@@ -1,7 +1,10 @@
-// src/app/api/process-cv/mock-route.ts
-// Renombre este archivo a "route.ts" para utilizarlo como un mock si no tiene una clave de API válida
-
+// src/app/api/process-cv/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import OpenAI from 'openai';
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,67 +17,116 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Simula el procesamiento con una respuesta predeterminada
-    // En un entorno real, esto utilizaría la API de Google AI Studio
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json(
+        { error: 'OpenAI no está configurado. Por favor configura la variable de entorno OPENAI_API_KEY.' },
+        { status: 500 }
+      );
+    }
 
-    // Espera un poco para simular el procesamiento
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // Prompt para estructurar la información del CV
+    const prompt = `
+Analiza el siguiente texto extraído de un CV y organiza la información en un formato JSON estructurado.
 
-    // Mock de los datos procesados
-    const processedData = {
-      personalInfo: {
-        name: "Juan Pérez",
-        email: "jperez@email.com",
-        phone: "+34 612345678",
-        location: "Madrid, España"
-      },
-      summary: "Desarrollador web con más de 5 años de experiencia creando aplicaciones web modernas y responsivas. Especializado en React, TypeScript y Node.js.",
-      experience: [
+IMPORTANTE: Responde ÚNICAMENTE con el objeto JSON válido, sin texto adicional, sin markdown, sin explicaciones.
+
+El JSON debe tener esta estructura exacta:
+{
+  "personalInfo": {
+    "name": "string",
+    "email": "string", 
+    "phone": "string o null",
+    "location": "string o null"
+  },
+  "summary": "string - resumen profesional",
+  "experience": [
+    {
+      "company": "string",
+      "position": "string", 
+      "startDate": "string o null",
+      "endDate": "string o null",
+      "description": "string"
+    }
+  ],
+  "education": [
+    {
+      "institution": "string",
+      "degree": "string",
+      "startDate": "string o null", 
+      "endDate": "string o null"
+    }
+  ],
+  "skills": ["array de strings"],
+  "languages": [
+    {
+      "name": "string",
+      "level": "string"
+    }
+  ]
+}
+
+Texto del CV:
+${text}
+
+Responde únicamente con el JSON:`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
         {
-          company: "TechSolutions",
-          position: "Desarrollador Frontend Senior",
-          startDate: "Enero 2020",
-          endDate: "Presente",
-          description: "Desarrollo de aplicaciones web con React y TypeScript. Implementación de interfaces de usuario siguiendo principios de diseño UX/UI. Trabajo en equipo utilizando metodologías ágiles."
+          role: "system", 
+          content: "Eres un experto en análisis de currículums. Extrae y estructura la información de manera precisa. Responde únicamente con JSON válido."
         },
         {
-          company: "InnovateSoft",
-          position: "Desarrollador Web",
-          startDate: "Marzo 2018",
-          endDate: "Diciembre 2019",
-          description: "Mantenimiento y desarrollo de aplicaciones con Angular. Integración de APIs REST. Optimización de rendimiento."
+          role: "user",
+          content: prompt
         }
       ],
-      education: [
-        {
-          institution: "Universidad Complutense de Madrid",
-          degree: "Grado en Ingeniería Informática",
-          startDate: "2014",
-          endDate: "2018"
-        }
-      ],
-      skills: ["React", "TypeScript", "JavaScript", "HTML5", "CSS3", "Node.js", "Express", "MongoDB", "Git"],
-      languages: [
-        {
-          name: "Español",
-          level: "Nativo"
-        },
-        {
-          name: "Inglés",
-          level: "Avanzado"
-        },
-        {
-          name: "Francés",
-          level: "Básico"
-        }
-      ]
-    };
+      temperature: 0.1,
+      max_tokens: 2000
+    });
 
-    return NextResponse.json({ processedData });
+    const responseText = completion.choices[0]?.message?.content;
+    
+    if (!responseText) {
+      return NextResponse.json(
+        { error: 'No se pudo procesar el texto con OpenAI' },
+        { status: 500 }
+      );
+    }
+
+    try {
+      // Intentar parsear la respuesta como JSON
+      const processedData = JSON.parse(responseText.trim());
+      
+      // Validar que tenga la estructura básica esperada
+      if (!processedData.personalInfo || !processedData.experience || !processedData.education) {
+        throw new Error('Estructura de datos inválida');
+      }
+
+      return NextResponse.json({ processedData });
+    } catch (parseError) {
+      console.error('Error parseando respuesta de OpenAI:', parseError);
+      console.error('Respuesta recibida:', responseText);
+      
+      return NextResponse.json(
+        { error: 'Error al procesar la respuesta de OpenAI. El formato no es válido.' },
+        { status: 500 }
+      );
+    }
+
   } catch (error) {
-    console.error('Error procesando el CV:', error);
+    console.error('Error procesando el CV con OpenAI:', error);
+    
+    if (error instanceof Error && error.message.includes('API key')) {
+      return NextResponse.json(
+        { error: 'Error de autenticación con OpenAI. Verifica tu API key.' },
+        { status: 401 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Error desconocido' },
+      { error: error instanceof Error ? error.message : 'Error desconocido procesando con OpenAI' },
       { status: 500 }
     );
   }
