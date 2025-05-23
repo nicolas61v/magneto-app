@@ -13,8 +13,9 @@ export interface ButtonProps {
 }
 
 export interface FileUploaderProps {
-  onUploadComplete: (urls: string | string[]) => void; // Ahora acepta string o array
+  onUploadComplete: (urls: string | string[]) => void;
   onError: (error: string) => void;
+  disabled?: boolean;
 }
 
 export interface ResultViewerProps {

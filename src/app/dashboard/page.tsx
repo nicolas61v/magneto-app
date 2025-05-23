@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { FileUploader } from '@/components/cv/FileUploader';
 import { ResultViewer } from '@/components/cv/ResultViewer';
-import { useAsyncProcessing } from '@/hooks/useAsyncProcessing';
+import { useStepProcessing } from '@/hooks/useStepProcessing';
 import { firestoreService } from '@/services/firestore';
 import { CV } from '@/types/cv';
 import { Loader } from '@/components/ui/Loader';
@@ -12,20 +12,15 @@ import { Navbar } from '@/components/layout/Navbar';
 
 export default function Dashboard() {
   const [cv, setCv] = useState<CV | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentProgress, setCurrentProgress] = useState<string>('');
-  const { startAsyncProcess, isPolling } = useAsyncProcessing();
+  const { processCV, isProcessing, currentStep, progress } = useStepProcessing();
 
   const handleUploadComplete = async (imageUrls: string | string[]) => {
     try {
-      setIsLoading(true);
       setError(null);
       
       // Convertir a array si es string único
       const urls = Array.isArray(imageUrls) ? imageUrls : [imageUrls];
-      
-      setCurrentProgress(`Preparando ${urls.length} imagen${urls.length > 1 ? 'es' : ''}...`);
       
       // Crear CV inicial
       const initialCV: Omit<CV, 'id' | 'createdAt'> = {
@@ -48,58 +43,23 @@ export default function Dashboard() {
       
       setCv(cvWithId);
       
-      // Iniciar procesamiento asíncrono
-      setCurrentProgress('Iniciando procesamiento...');
-      
-      const response = await fetch('/api/process-async', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cvId: firestoreId,
-          imageUrls: urls
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Error iniciando procesamiento');
-      }
-      
-      setIsLoading(false);
-      
-      // Iniciar polling para verificar estado
-      startAsyncProcess(
-        firestoreId,
-        (updatedCv) => {
+      // Procesar CV por pasos
+      await processCV(firestoreId, urls, {
+        onUpdate: (updatedCv) => {
           setCv(updatedCv);
-          
-          // Actualizar mensaje de progreso
-          if (updatedCv.status === 'extracting') {
-            const progress = updatedCv.extractionProgress || 0;
-            if (progress < 50) {
-              setCurrentProgress(`Extrayendo texto: ${Math.round(progress * 2)}%`);
-            } else {
-              setCurrentProgress('Analizando con IA...');
-            }
-          } else if (updatedCv.status === 'processing') {
-            setCurrentProgress('Finalizando análisis con IA...');
-          }
         },
-        (completedCv) => {
+        onComplete: (completedCv) => {
           setCv(completedCv);
-          setCurrentProgress('');
         },
-        (errorMsg) => {
+        onError: (errorMsg) => {
           setError(errorMsg);
-          setCurrentProgress('');
         }
-      );
+      });
       
     } catch (err) {
       console.error('Error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Error en el procesamiento';
       setError(errorMessage);
-      setCurrentProgress('');
-      setIsLoading(false);
     }
   };
 
@@ -158,7 +118,7 @@ export default function Dashboard() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <span className="text-sm">Procesamiento asíncrono sin timeouts</span>
+                  <span className="text-sm">Procesamiento optimizado para Vercel</span>
                 </div>
                 <div className="flex items-start">
                   <div className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">
@@ -193,22 +153,30 @@ export default function Dashboard() {
             <FileUploader
               onUploadComplete={handleUploadComplete}
               onError={handleError}
+              disabled={isProcessing}
             />
             
-            {(isLoading || isPolling) && currentProgress && (
+            {isProcessing && (
               <div className="mt-6 card p-6 flex flex-col items-center justify-center text-center">
                 <Loader size="md" color="primary" />
-                <p className="mt-4 text-secondary-foreground">
-                  {currentProgress}
+                <p className="mt-4 text-secondary-foreground font-medium">
+                  {currentStep}
                 </p>
-                <div className="w-full bg-secondary h-2 rounded-full mt-4 overflow-hidden">
-                  <div className="animate-shimmer h-full rounded-full"></div>
+                <div className="w-full mt-4">
+                  <div className="flex justify-between text-sm text-gray-600 mb-1">
+                    <span>Progreso</span>
+                    <span>{Math.round(progress)}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                    <div 
+                      className="bg-blue-600 h-full rounded-full transition-all duration-300 ease-out"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
                 </div>
-                {isPolling && (
-                  <p className="text-xs text-gray-500 mt-2">
-                    Procesando en segundo plano...
-                  </p>
-                )}
+                <p className="text-xs text-gray-500 mt-3">
+                  Procesando directamente en el servidor...
+                </p>
               </div>
             )}
           </div>
@@ -217,7 +185,7 @@ export default function Dashboard() {
             <div>
               <ResultViewer
                 cv={cv}
-                isLoading={isLoading || isPolling}
+                isLoading={isProcessing}
               />
             </div>
           )}
