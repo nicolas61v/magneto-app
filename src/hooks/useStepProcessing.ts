@@ -9,6 +9,8 @@ interface UseStepProcessingOptions {
   onError?: (error: string) => void;
 }
 
+// src/hooks/useStepProcessing.ts - REEMPLAZAR SECCIÓN COMPLETA
+
 export const useStepProcessing = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentStep, setCurrentStep] = useState('');
@@ -25,7 +27,7 @@ export const useStepProcessing = () => {
     setProgress(0);
     
     try {
-      // PASO 1: Extraer texto de cada imagen
+      // ✅ PASO 1: Extraer texto de cada imagen
       let allExtractedText = '';
       const totalImages = imageUrls.length;
       
@@ -45,8 +47,17 @@ export const useStepProcessing = () => {
           });
           
           if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Error en extracción');
+            console.error(`Error HTTP ${response.status} para imagen ${i + 1}`);
+            // ✅ INTENTAR LEER ERROR COMO TEXTO PRIMERO
+            let errorMessage = 'Error en extracción';
+            try {
+              const errorData = await response.json();
+              errorMessage = errorData.error || errorMessage;
+            } catch {
+              const errorText = await response.text();
+              errorMessage = errorText || errorMessage;
+            }
+            throw new Error(errorMessage);
           }
           
           const { extractedText, progress: extractionProgress } = await response.json();
@@ -60,7 +71,7 @@ export const useStepProcessing = () => {
           
           setProgress(extractionProgress);
           
-          // Actualizar CV en tiempo real
+          // ✅ ACTUALIZAR CV EN TIEMPO REAL
           if (onUpdate) {
             const updatedCV = await firestoreService.getCV(cvId);
             if (updatedCV) onUpdate(updatedCV);
@@ -68,16 +79,21 @@ export const useStepProcessing = () => {
           
         } catch (error) {
           console.error(`Error procesando imagen ${i + 1}:`, error);
-          // Continuar con las demás imágenes
+          // ✅ CONTINUAR CON OTRAS IMÁGENES EN LUGAR DE FALLAR
+          if (i === 0) {
+            // Si falla la primera imagen, es crítico
+            throw error;
+          }
+          // Si falla una imagen posterior, continuar
         }
       }
       
-      // Validar que tenemos texto suficiente
+      // ✅ VALIDAR QUE TENEMOS TEXTO SUFICIENTE
       if (!allExtractedText || allExtractedText.trim().length < 50) {
         throw new Error('No se pudo extraer texto suficiente de las imágenes');
       }
       
-      // PASO 2: Analizar con OpenAI
+      // ✅ PASO 2: Analizar con OpenAI (CON MEJOR MANEJO DE ERRORES)
       setCurrentStep('Analizando información con IA...');
       setProgress(60);
       
@@ -91,16 +107,23 @@ export const useStepProcessing = () => {
       });
       
       if (!analysisResponse.ok) {
-        const error = await analysisResponse.json();
-        throw new Error(error.error || 'Error en análisis');
+        let errorMessage = `Error HTTP ${analysisResponse.status} - Servidor sobrecargado. Intenta con una sola imagen.`;
+        throw new Error(errorMessage);
       }
-      
-    //   const { processedData } = await analysisResponse.json();
+
+      // ✅ PARSEAR RESPUESTA CON VALIDACIÓN
+      let analysisData;
+      try {
+        analysisData = await analysisResponse.json();
+      } catch (jsonError) {
+        console.error('Error parsing analysis response:', jsonError);
+        throw new Error('Respuesta inválida del servidor de análisis');
+      }
       
       setProgress(100);
       setCurrentStep('¡Procesamiento completado!');
       
-      // Obtener CV actualizado final
+      // ✅ OBTENER CV ACTUALIZADO FINAL
       const finalCV = await firestoreService.getCV(cvId);
       if (finalCV && onComplete) {
         onComplete(finalCV);
@@ -114,8 +137,12 @@ export const useStepProcessing = () => {
         onError(errorMessage);
       }
       
-      // Marcar como error en Firestore
-      await firestoreService.markAsError(cvId, errorMessage);
+      // ✅ MARCAR COMO ERROR EN FIRESTORE
+      try {
+        await firestoreService.markAsError(cvId, errorMessage);
+      } catch (firestoreError) {
+        console.error('Error guardando error en Firestore:', firestoreError);
+      }
       
     } finally {
       setIsProcessing(false);
