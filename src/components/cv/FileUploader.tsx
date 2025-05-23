@@ -3,7 +3,7 @@ import { useState, useRef } from 'react';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { Button } from '@/components/ui/Button';
 import { FileUploaderProps } from '@/types/components';
-import { convertPdfToImages } from '@/services/pdfToImages';
+import { convertPdfToImagesClient } from '@/services/pdfToImagesClient';
 
 export const FileUploader: React.FC<FileUploaderProps> = ({ 
   onUploadComplete, 
@@ -51,7 +51,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
       for (const file of newFiles) {
         if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
           // Convertir PDF a imágenes
-          const images = await convertPdfToImages(file);
+          const images = await convertPdfToImagesClient(file);
           processedFiles.push(...images);
         } else {
           // Archivo de imagen normal
