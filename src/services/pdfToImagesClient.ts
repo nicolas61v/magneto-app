@@ -1,18 +1,18 @@
-// src/services/pdfToImagesClient.ts - COPIAR COMPLETO
-import * as pdfjsLib from 'pdfjs-dist';
-
-// Solo configurar en el navegador
-if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = 
-    `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-}
-
+// src/services/pdfToImagesClient.ts - REEMPLAZAR TODO
 export const convertPdfToImagesClient = async (file: File): Promise<File[]> => {
+  // ✅ SOLO ejecutar en navegador
   if (typeof window === 'undefined') {
     throw new Error('PDF processing solo funciona en el navegador');
   }
 
   try {
+    // ✅ IMPORT DINÁMICO - evita problemas de build
+    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf');
+    
+    // ✅ CONFIGURAR WORKER
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 
+      `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+    
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const numPages = pdf.numPages;
