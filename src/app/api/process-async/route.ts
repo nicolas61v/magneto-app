@@ -13,6 +13,10 @@ export async function POST(request: NextRequest) {
   try {
     const { cvId, imageUrls } = await request.json();
     
+    console.log('=== INICIANDO PROCESAMIENTO ASÍNCRONO ===');
+    console.log('CV ID:', cvId);
+    console.log('Número de imágenes:', imageUrls?.length);
+    
     if (!cvId || !imageUrls || !Array.isArray(imageUrls)) {
       return NextResponse.json(
         { error: 'Datos inválidos' },
@@ -20,8 +24,30 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Verificar variables de entorno
+    const hasVisionConfig = !!(
+      process.env.GOOGLE_CLOUD_PROJECT_ID &&
+      process.env.GOOGLE_CLOUD_CLIENT_EMAIL &&
+      process.env.GOOGLE_CLOUD_PRIVATE_KEY
+    );
+    
+    const hasOpenAIConfig = !!process.env.OPENAI_API_KEY;
+    
+    console.log('Vision AI configurado:', hasVisionConfig);
+    console.log('OpenAI configurado:', hasOpenAIConfig);
+    
+    if (!hasVisionConfig || !hasOpenAIConfig) {
+      await firestoreService.markAsError(cvId, 'APIs no configuradas correctamente');
+      return NextResponse.json(
+        { error: 'Configuración de APIs faltante' },
+        { status: 500 }
+      );
+    }
+    
     // Iniciar procesamiento en background
-    processAsync(cvId, imageUrls);
+    processAsync(cvId, imageUrls).catch(error => {
+      console.error('Error en processAsync:', error);
+    });
     
     // Responder inmediatamente para evitar timeout
     return NextResponse.json({
@@ -31,7 +57,7 @@ export async function POST(request: NextRequest) {
     });
     
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error en POST:', error);
     return NextResponse.json(
       { error: 'Error iniciando procesamiento' },
       { status: 500 }
@@ -41,10 +67,15 @@ export async function POST(request: NextRequest) {
 
 // Función asíncrona que se ejecuta en background
 async function processAsync(cvId: string, imageUrls: string[]) {
+  console.log('=== PROCESO ASYNC INICIADO ===');
+  console.log('Procesando CV:', cvId);
+  
   try {
     // FASE 1: Extracción de texto con Vision AI
     let allExtractedText = '';
     const totalImages = imageUrls.length;
+    
+    console.log('Configurando Vision AI...');
     
     // Configurar cliente de Vision AI
     const visionClient = new ImageAnnotatorClient({
@@ -55,8 +86,12 @@ async function processAsync(cvId: string, imageUrls: string[]) {
       },
     });
     
+    console.log('Vision AI configurado, iniciando extracción...');
+    
     for (let i = 0; i < imageUrls.length; i++) {
       try {
+        console.log(`Procesando imagen ${i + 1} de ${totalImages}`);
+        
         // Actualizar progreso
         const progress = ((i + 1) / totalImages) * 50; // 50% para extracción
         await firestoreService.updateCV(cvId, {
@@ -81,6 +116,8 @@ async function processAsync(cvId: string, imageUrls: string[]) {
           extractedText = result.textAnnotations[0].description;
         }
         
+        console.log(`Texto extraído de imagen ${i + 1}: ${extractedText.length} caracteres`);
+        
         if (extractedText && extractedText.trim().length > 0) {
           if (allExtractedText.length > 0) {
             allExtractedText += '\n\n--- PÁGINA ' + (i + 1) + ' ---\n\n';
@@ -93,6 +130,8 @@ async function processAsync(cvId: string, imageUrls: string[]) {
       }
     }
     
+    console.log('Extracción completa. Total de texto:', allExtractedText.length, 'caracteres');
+    
     // Validar texto extraído
     if (!allExtractedText || allExtractedText.trim().length < 50) {
       throw new Error('No se pudo extraer texto suficiente de las imágenes');
@@ -104,6 +143,8 @@ async function processAsync(cvId: string, imageUrls: string[]) {
       extractionProgress: 50,
       status: 'processing'
     });
+    
+    console.log('Iniciando procesamiento con OpenAI...');
     
     // FASE 2: Procesamiento con OpenAI
     const systemPrompt = `Eres un experto en análisis de CVs. Tu tarea es extraer información de un CV que puede estar en múltiples páginas.
@@ -125,7 +166,7 @@ Devuelve SOLO un JSON válido con esta estructura exacta:
 }`;
 
     const completion = await openaiClient.chat.completions.create({
-      model: "gpt-4.1-nano",
+      model: "gpt-4o-mini",
       messages: [
         {
           role: "system", 
@@ -140,6 +181,8 @@ Devuelve SOLO un JSON válido con esta estructura exacta:
       max_tokens: 2500
     });
 
+    console.log('Respuesta de OpenAI recibida');
+
     const responseText = completion.choices[0]?.message?.content;
     
     if (!responseText) {
@@ -149,6 +192,8 @@ Devuelve SOLO un JSON válido con esta estructura exacta:
     // Parsear respuesta
     const processedData = JSON.parse(responseText.trim());
     
+    console.log('Datos procesados correctamente, guardando en Firestore...');
+    
     // Actualizar con datos procesados
     await firestoreService.updateProcessedData(cvId, processedData);
     await firestoreService.updateCV(cvId, {
@@ -156,8 +201,11 @@ Devuelve SOLO un JSON válido con esta estructura exacta:
       status: 'completed'
     });
     
+    console.log('=== PROCESO COMPLETADO EXITOSAMENTE ===');
+    
   } catch (error) {
-    console.error('Error en procesamiento asíncrono:', error);
+    console.error('=== ERROR EN PROCESAMIENTO ===');
+    console.error('Error completo:', error);
     const errorMessage = error instanceof Error ? error.message : 'Error en procesamiento';
     await firestoreService.markAsError(cvId, errorMessage);
   }
