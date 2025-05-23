@@ -94,8 +94,8 @@ export const useStepProcessing = () => {
         const error = await analysisResponse.json();
         throw new Error(error.error || 'Error en análisis');
       }
-      //@ts-ignore
-      const { processedData } = await analysisResponse.json();
+      
+    //   const { processedData } = await analysisResponse.json();
       
       setProgress(100);
       setCurrentStep('¡Procesamiento completado!');
